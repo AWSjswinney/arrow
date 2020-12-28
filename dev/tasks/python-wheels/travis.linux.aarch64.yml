@@ -47,3 +47,11 @@ install:
   - cd arrow
   - docker-compose build centos-python-manylinux2014
   - docker-compose run -e PYTHON_VERSION="3.8" centos-python-manylinux2014
+  - cd ..
+  - path=$(ls arrow/python/dist/*.whl) && echo "wheels:" $path
+
+  {% if arrow.branch == 'master' %}
+  # upload to gemfury pypi repository, there should be a single wheel
+  - path=$(ls arrow/python/dist/*.whl)
+  - curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+  {% endif %}
