@@ -34,19 +34,31 @@ env:
     - REPO=apache/arrow-dev
     - ARCH=aarch64
     - ULIMIT_CORE=-1
+    - DOCKER_BUILDKIT=0
+    - COMPOSE_DOCKER_CLI_BUILD=1
 
 before_install:
-  - pip3 install docker-compose
-
+  - sudo apt-get update && sudo apt-get install -y python3-pygit2
+  - sudo pip3 install click github3.py jinja2 jira ruamel.yaml setuptools_scm toolz docker-compose
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
   - git -C arrow submodule update --init
+  - sudo pip3 install -e arrow/dev/archery[docker]
 
 install:
-  - cd arrow
-  - docker-compose build centos-python-manylinux2014
-  - docker-compose run -e PYTHON_VERSION="3.8" centos-python-manylinux2014
+  - |
+    cd arrow
+    BUILD_IMAGE=centos-python-{{ wheel_tag }}
+    archery docker run \
+      -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+      -e PYTHON_VERSION="{{ python_version }}" \
+      -e UNICODE_WIDTH="{{ unicode_width }}" \
+      ${BUILD_IMAGE}
+    docker run \
+      -v $(pwd):/arrow quay.io/pypa/{{ wheel_tag }}_aarch64 \
+      /bin/bash -c \
+        "auditwheel show /arrow/python/{{ wheel_dir }}/dist/*.whl"
   - cd ..
   - path=$(ls arrow/python/dist/*.whl) && echo "wheels:" $path
 
